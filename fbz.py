@@ -9,61 +9,14 @@ matplotlib.rcParams.update({'font.size': 15})
 from time import time
 start = time()
 
-#build a NxN primitive cell (PC) grid
-#final grid has approx NxN wavevectors
+#build a NxN meshgrid on the FBZ
 #wavevectors are in units of 1/a
-
-#set N
-N = 12
-
-#draw FBZ contour for reference
-
-vertices1 = [
-    (0, 4*np.pi/3/np.sqrt(3)),
-    (2*np.pi/3, 2*np.pi/3/np.sqrt(3)),
-    (2*np.pi/3, -2*np.pi/3/np.sqrt(3)),
-    (0, -4*np.pi/3/np.sqrt(3)),
-    (-2*np.pi/3, -2*np.pi/3/np.sqrt(3)),
-    (-2*np.pi/3, 2*np.pi/3/np.sqrt(3))
-]
-
-def draw_hexagon(ax, vertices):
-    # Create a Polygon patch with the specified vertices
-    hexagon = patches.Polygon(vertices, closed=True, edgecolor='black', facecolor='none', linewidth=0.6)
-
-    # Add the hexagon patch to the Axes
-    ax.add_patch(hexagon)
-
-# Create a figure and axis
-my_dpi = 96
-fig, ax = plt.subplots(figsize=(400/my_dpi, 400/my_dpi), dpi=my_dpi)
-
-# Call the function to draw the hexagon
-draw_hexagon(ax, vertices1)
-plt.grid(True, linestyle=':', alpha=0.5)
+N = 12 #set N
+plot = 0 #if True, plots meshgrid
 
 #primitive vectors
 b1 = np.array([2*np.pi/3, 2*np.pi/np.sqrt(3)])
 b2 = np.array([2*np.pi/3, -2*np.pi/np.sqrt(3)])
-
-#unit cell contour
-plt.plot([0,b1[0]],[0,b1[1]],'r-', linewidth=1)
-plt.plot([0,b2[0]],[0,b2[1]],'r-', linewidth=1)
-plt.plot([b1[0],2*b1[0]],[b1[1],0],'r-', linewidth=1)
-plt.plot([b2[0],2*b2[0]],[b2[1],0],'r-', linewidth=1)
-
-#non-primitive reciprocal lattice vectors (we only need these three)
-bb = np.zeros((4,2), dtype='float')
-#changing the order of these changes the symmetry structure of the FBZ meshgrid
-bb[0] = np.zeros(2); bb[1] = -b1; bb[2] = -b1-b2; bb[3] = -b2
-
-#projectors on reciprocal vectors
-p = np.zeros((4,2,2), dtype='float')
-for i in range(4):
-    if bb[i][0] == 0:
-        p[i] = np.array([np.array([0,0]), np.array([0,0])])
-    else:
-        p[i,:,:] = np.outer(np.transpose(bb[i])/np.hypot(bb[i][0],bb[i][1]),bb[i]/np.hypot(bb[i][0],bb[i][1]))
 
 #build the grid on the PC
 kpc = []
@@ -71,43 +24,127 @@ for i in range(N):
     for j in range(N):
         kpc.append(i/N*b1 + j/N*b2)
 
-#plot grid on the PC
-for l in range(N*N):
-    plt.plot(kpc[l][0], kpc[l][1],'+', markersize = 4, color = 'blue')
-
 #fold on the FBZ
-#if eps = 0, we get no points on the contour, symmetric FBZ meshgrid with sum(k) = 0; otherwise, if eps = fraction of the spacing, we get an asymmetric FBZ meshgrid with sum(k) \neq 0
-eps = np.hypot(b1[0], b1[1])/N/10
-k = []
-for l in range(N*N):
-    for m in range(4):
-        pr = []
-        kk = kpc[l]+bb[m]
-        for n in range(4):
-            pr.append(np.hypot(p[n,0,0]*kk[0] + p[n,0,1]*kk[1],
-            p[n,1,0]*kk[0] + p[n,1,1]*kk[1]))
-        if pr[0] < (b1[0] + eps) and pr[1] < (b1[0] + eps) and pr[2] < (b1[0] + eps) and pr[3] < (b1[0] + eps):
-            k.append(kk)
-            break
+    # Create a figure and axis
+my_dpi = 96
+fig, ax = plt.subplots(figsize=(500/my_dpi, 500/my_dpi), dpi=my_dpi)
 
-#convert to numpy array and save as a .npy file
-k = np.array(k)
-np.save('c:/users/gugli/desktop/tesi/codice/fbz_meshgrid.npy',k)
+kpc1 = []; kpc2 = []; kpc3 = []; kpc4 = []
+k1 = []; k2 = []; k3 = []; k4 = []
+eps = np.hypot(b1[0],b1[1])/N/10
+for l in range(N*N):
+    #bulk 1
+    if kpc[l][0] < 2*np.pi/3-eps and kpc[l][1] < 4*np.pi/3/np.sqrt(3) - 1/np.sqrt(3)*kpc[l][0] +eps and kpc[l][1] > -4*np.pi/3/np.sqrt(3) + 1/np.sqrt(3)*kpc[l][0] +eps:
+        kk = kpc[l]
+        kpc1.append(kpc[l])
+        k1.append(kk)
+    #right border 1
+    if kpc[l][0] > 2*np.pi/3-eps and kpc[l][0] <  2*np.pi/3 +eps and kpc[l][1] < 4*np.pi/3/np.sqrt(3) - 1/np.sqrt(3)*kpc[l][0] +eps and kpc[l][1] > -4*np.pi/3/np.sqrt(3) + 1/np.sqrt(3)*kpc[l][0] +eps:
+        kk = kpc[l]-b1-b2
+        kpc1.append(kpc[l])
+        k1.append(kk)
+    #lower border 1
+    if kpc[l][0] <  2*np.pi/3 +eps and kpc[l][1] > -4*np.pi/3/np.sqrt(3) + 1/np.sqrt(3)*kpc[l][0] -eps and kpc[l][1] < -4*np.pi/3/np.sqrt(3) + 1/np.sqrt(3)*kpc[l][0] +eps:
+        kk = kpc[l]
+        kpc1.append(kpc[l])
+        k1.append(kk)
+    #2
+    if kpc[l][1] > 4*np.pi/3/np.sqrt(3) - 1/np.sqrt(3)*kpc[l][0] + eps and kpc[l][1] >  1/np.sqrt(3)*kpc[l][0]-eps:
+        kk = kpc[l]-b1
+        kpc2.append(kpc[l])
+        k2.append(kk)
+    #3
+    if kpc[l][1] < -4*np.pi/3/np.sqrt(3) + 1/np.sqrt(3)*kpc[l][0]-eps and kpc[l][1] <  -1/np.sqrt(3)*kpc[l][0]+eps:
+        kk = kpc[l]-b2
+        kpc3.append(kpc[l])
+        k3.append(kk)
+    #4
+    if kpc[l][0] > 2*np.pi/3 + eps and kpc[l][1] < 1/np.sqrt(3)*kpc[l][0] - eps and kpc[l][1] > -1/np.sqrt(3)*kpc[l][0]+eps:
+        kk = kpc[l]-b1-b2
+        kpc4.append(kpc[l])
+        k4.append(kk)
+
+
+kpc1 = np.array(kpc1); kpc2 = np.array(kpc2);
+kpc3 = np.array(kpc3); kpc4 = np.array(kpc4)
+
+k1 = np.array(k1); k2 = np.array(k2);
+k3 = np.array(k3); k4 = np.array(k4)
+
+kpc = np.concatenate((kpc1, kpc2), axis = 0)
+kpc = np.concatenate((kpc, kpc3), axis = 0)
+kpc = np.concatenate((kpc, kpc4), axis = 0)
+
+k = np.concatenate((k1, k2), axis = 0)
+k = np.concatenate((k, k3), axis = 0)
+k = np.concatenate((k, k4), axis = 0)
+
+np.save('c:/users/gugli/desktop/tesi/data/fbz_meshgrid.npy',k)
+
+print('sum(k) = (%.E, %.E) [1/a]'%(sum(k)[0], sum(k)[1]))
+
+print('len(k) = %.0f'%(len(k)))
 
 #calc time
-print('%.2f'%(time()-start))
+print('calc time = %.2f s'%(time()-start))
 
 #plot the meshgrid
+if plot:
 
-plt.plot(k[:,0], k[:,1],'kx', markersize = 4)
+    #draw FBZ contour for reference
 
-plt.xlim(-4.5, 4.5)
-plt.ylim(-4.5, 4.5)
-plt.xlabel('$k_x a$')
-plt.ylabel('$k_y a$')
-plt.subplots_adjust(left=0.2, right=0.8, bottom = 0.2, top = 0.8)
+    vertices1 = [
+        (0, 4*np.pi/3/np.sqrt(3)),
+        (2*np.pi/3, 2*np.pi/3/np.sqrt(3)),
+        (2*np.pi/3, -2*np.pi/3/np.sqrt(3)),
+        (0, -4*np.pi/3/np.sqrt(3)),
+        (-2*np.pi/3, -2*np.pi/3/np.sqrt(3)),
+        (-2*np.pi/3, 2*np.pi/3/np.sqrt(3))
+    ]
 
-plt.savefig(r'c:\users\gugli\desktop\tesi\figure\meshgrid.jpeg', dpi = my_dpi*5)
+    def draw_hexagon(ax, vertices):
+        # Create a Polygon patch with the specified vertices
+        hexagon = patches.Polygon(vertices, closed=True, edgecolor='black', facecolor='none', linewidth=0.6, zorder=-2)
 
+        # Add the hexagon patch to the Axes
+        ax.add_patch(hexagon)
 
-plt.show()
+    # Call the function to draw the hexagon
+    draw_hexagon(ax, vertices1)
+    #plt.grid(True, linestyle=':', alpha=0.5)
+
+    '''
+    #plot primitive cell meshgrid with numbers
+    plt.plot(kpc1[:,0], kpc1[:,1], marker = '$1$', color = 'k', markersize=5, zorder=-1, linewidth=0)
+    plt.plot(kpc2[:,0], kpc2[:,1], marker = '$2$', color = 'k', markersize=5, zorder=-1, linewidth=0)
+    plt.plot(kpc3[:,0], kpc3[:,1], marker = '$3$', color = 'k', markersize=5, zorder=-1, linewidth=0)
+    plt.plot(kpc4[:,0], kpc4[:,1], marker = '$4$', color = 'k', markersize=5, zorder=-1, linewidth=0)
+
+    #plot FBZ meshgrid with numbers
+    plt.plot(k1[:,0], k1[:,1], marker = '$1$', color = 'k', markersize=5, zorder=-1, linewidth=0)
+    plt.plot(k2[:,0], k2[:,1], marker = '$2$', color = 'k', markersize=5, zorder=-1, linewidth=0)
+    plt.plot(k3[:,0], k3[:,1], marker = '$3$', color = 'k', markersize=5, zorder=-1, linewidth=0)
+    plt.plot(k4[:,0], k4[:,1], marker = '$4$', color = 'k', markersize=5, zorder=-1, linewidth=0)
+    '''
+
+    #plot primitive cell meshgrid
+    #plt.plot(kpc[:,0], kpc[:,1], marker = '$x$', color = 'k', markersize=5, zorder=-1, linewidth=0)
+
+    #plot FBZ meshgrid
+    plt.plot(k[:,0], k[:,1], marker = 'x', color = 'k', markersize=4.5, zorder=-1, linewidth=0)
+
+    #unit cell contour
+    plt.plot([0,b1[0]],[0,b1[1]],'r-', linewidth=0.8, zorder=-2)
+    plt.plot([0,b2[0]],[0,b2[1]],'r-', linewidth=0.8, zorder=-2)
+    plt.plot([b1[0],2*b1[0]],[b1[1],0],'r-', linewidth=0.8, zorder=-2)
+    plt.plot([b2[0],2*b2[0]],[b2[1],0],'r-', linewidth=0.8, zorder=-2)
+
+    plt.xlim(-4.5, 4.5)
+    plt.ylim(-4.5, 4.5)
+    plt.xlabel('$k_x a$')
+    plt.ylabel('$k_y a$')
+    plt.subplots_adjust(left=0.2, right=0.8, bottom = 0.2, top = 0.8)
+
+    plt.savefig(r'c:\users\gugli\desktop\tesi\figure\meshgrid.jpeg', dpi = my_dpi*5)
+
+    plt.show()
